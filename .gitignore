@@ -1,0 +1,5 @@
+# Ignorar credenciais e dependências locais
+.env
+backend-premium.env
+serviceAccountKey.json
+node_modules/
