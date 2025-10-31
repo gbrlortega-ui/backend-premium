@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sua Dieta do Dia</title>
+  <style>
+    :root {
+      --bg1: #0f172a;
+      --bg2: #1e293b;
+      --accent: #38bdf8;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --card-bg: rgba(30,41,59,0.8);
+      --radius-lg: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", Roboto, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 20%, #1e3a8a 0%, #0f172a 60%);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .app {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      width: 100%;
+      max-width: 420px;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+      border: 1px solid rgba(148,163,184,0.2);
+      padding: 24px;
+    }
+
+    h2 {
+      margin: 0 0 4px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+
+    .step-label {
+      font-size: .7rem;
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .sub {
+      font-size: .8rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    .meta-card {
+      background: var(--bg2);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(148,163,184,0.2);
+      padding: 16px;
+      margin-bottom: 20px;
+      font-size: .9rem;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: .9rem;
+    }
+
+    .meta-label {
+      color: var(--text-dim);
+    }
+
+    .meta-value {
+      color: var(--text-main);
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .refeicao-card {
+      background: var(--bg2);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(148,163,184,0.2);
+      padding: 16px;
+      margin-bottom: 16px;
+      font-size: .9rem;
+    }
+
+    .refeicao-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+
+    .refeicao-nome {
+      font-size: .9rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .refeicao-kcal {
+      font-size: .8rem;
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    table.itens-refeicao {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .8rem;
+      color: var(--text-main);
+    }
+
+    table.itens-refeicao th {
+      text-align: left;
+      font-weight: 500;
+      color: var(--text-dim);
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(148,163,184,0.3);
+      font-size: .7rem;
+    }
+
+    table.itens-refeicao td {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(148,163,184,0.1);
+      vertical-align: top;
+    }
+
+    .alimento-nome {
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .alimento-peso {
+      font-size: .7rem;
+      color: var(--text-dim);
+      line-height: 1.3;
+    }
+
+    .alimento-opcoes {
+      font-size: .65rem;
+      color: var(--accent);
+      line-height: 1.3;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .obs-refeicao {
+      font-size: .7rem;
+      color: var(--text-dim);
+      margin-top: 10px;
+      line-height: 1.4;
+    }
+
+    .footer-actions {
+      text-align: center;
+      margin-top: 24px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .action-btn {
+      background: linear-gradient(135deg, #34d399, #10b981);
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: .9rem;
+      font-weight: 600;
+      color: #0f172a;
+      cursor: pointer;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+    }
+
+    .back-link {
+      text-decoration: none;
+      font-size: .85rem;
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* Impressão em A4 */
+    @media print {
+      @page {
+        size: A4;
+        margin: 20mm;
+      }
+
+      body {
+        background: #fff !important;
+        padding: 0;
+        display: block;
+      }
+
+      .app {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        border: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+        max-width: 100%;
+        width: 100%;
+        padding: 0;
+        font-size: 12pt;
+      }
+
+      .meta-card,
+      .refeicao-card {
+        background: #fff !important;
+        color: #000 !important;
+        border: 1px solid #999 !important;
+        box-shadow: none !important;
+      }
+
+      .refeicao-nome,
+      .refeicao-kcal,
+      .alimento-nome,
+      .alimento-peso,
+      .alimento-opcoes,
+      .meta-label,
+      .meta-value {
+        color: #000 !important;
+      }
+
+      .footer-actions {
+        display: none !important; /* não imprime botões/links */
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h2>
+      Seu plano diário
+      <span class="step-label">passo 2/2</span>
+    </h2>
+
+    <div class="sub">Baseado na sua meta calórica estimada e objetivo atual.</div>
+
+    <div class="meta-card">
+      <div class="meta-row">
+        <div class="meta-label">Objetivo</div>
+        <div class="meta-value" id="metaObjetivo">--</div>
+      </div>
+      <div class="meta-row">
+        <div class="meta-label">Calorias alvo</div>
+        <div class="meta-value" id="metaKcal">-- kcal/dia</div>
+      </div>
+      <div class="meta-row">
+        <div class="meta-label">Observação</div>
+        <div class="meta-value" id="metaObs">--</div>
+      </div>
+    </div>
+
+    <div id="refeicoesContainer"></div>
+
+    <div class="footer-actions">
+      <button class="action-btn" onclick="window.print()">
+        🖨️ Imprimir plano (A4)
+      </button>
+
+      <a class="back-link" id="backLink" href="#">← voltar e mudar objetivo</a>
+    </div>
+  </div>
+
+  <script>
+    // 🔒 bloqueio básico premium
+    const premiumOK = sessionStorage.getItem("premiumLiberado");
+    if (premiumOK !== "true") {
+      alert("Acesso restrito. Faça login premium.");
+      window.location.href = "index.html";
+    }
+
+    // 1. Resgate de dados básicos (goal, kcal alvo)
+    const params = new URLSearchParams(window.location.search);
+    let goal = params.get("goal");
+    let targetKcal = params.get("targetKcal");
+
+    if (!goal) {
+      goal = sessionStorage.getItem("nutriGoal") || "manutencao";
+    }
+    if (!targetKcal) {
+      targetKcal = sessionStorage.getItem("nutriTargetKcal") || 2000;
+    }
+
+    const targetKcalNum = parseInt(targetKcal);
+
+    // 2. Tabela calórica por grama
+    const KCAL_POR_G = {
+      ovo: 1.43,
+      pao_integral: 2.50,
+      abacate: 1.60,
+      queijo_branco: 1.20,
+      frango_peito: 1.65,
+      patinho_magro: 1.60,
+      arroz_integral: 1.28,
+      arroz_branco: 1.30,
+      feijao: 1.04,
+      salmao: 2.08,
+      peixe_branco: 1.10,
+      atum: 1.32,
+      batata: 0.86,
+      batata_doce: 0.86,
+      mandioca: 1.60,
+      azeite: 8.8,
+      iogurte_desnatado: 0.60,
+      iogurte_grego: 1.10,
+      whey: 4.0,
+      banana: 0.89,
+      pasta_amendoim: 5.9,
+      castanhas: 6.0,
+      legumes: 0 // legumes variados vaporizados/salteados, tratamos como free quase sem kcal relevante em 100g extra
+    };
+
+    // 3. Planos alimentares com opções de troca
+    const PLANOS = {
+      perda: {
+        obsGeral: "Déficit calórico com alta proteína e saciedade.",
+        refeicoes: [
+          {
+            nome: "Café da manhã",
+            itens: [
+              {
+                nome: "Ovos mexidos",
+                chave: "ovo",
+                peso: 100,
+                sub: ["Claras de ovo", "Ovo cozido", "Omelete simples"]
+              },
+              {
+                nome: "Pão integral",
+                chave: "pao_integral",
+                peso: 30,
+                sub: ["Tapioca pequena", "1 fatia de wrap integral", "1 fatia de pão de forma integral light"]
+              },
+              {
+                nome: "Queijo branco magro",
+                chave: "queijo_branco",
+                peso: 30,
+                sub: ["Cottage", "Ricota temperada", "Pasta de atum light"]
+              }
+            ]
+          },
+          {
+            nome: "Almoço",
+            itens: [
+              {
+                nome: "Peito de frango grelhado",
+                chave: "frango_peito",
+                peso: 120,
+                sub: ["Patinho moído magro", "Peixe branco grelhado", "Atum em água"]
+              },
+              {
+                nome: "Arroz integral cozido",
+                chave: "arroz_integral",
+                peso: 100,
+                sub: ["Quinoa cozida", "Arroz branco", "Cuscuz de milho simples"]
+              },
+              {
+                nome: "Feijão cozido",
+                chave: "feijao",
+                peso: 60,
+                sub: ["Lentilha cozida", "Grão-de-bico cozido"]
+              },
+              {
+                nome: "Azeite (salada)",
+                chave: "azeite",
+                peso: 5,
+                sub: ["Abacate picado", "Sementes de chia/moída no prato"]
+              }
+            ]
+          },
+          {
+            nome: "Jantar",
+            itens: [
+              {
+                nome: "Peixe branco grelhado",
+                chave: "peixe_branco",
+                peso: 120,
+                sub: ["Atum grelhado", "Frango desfiado", "Clara de ovo mexida"]
+              },
+              {
+                nome: "Legumes variados",
+                chave: "legumes",
+                peso: 0,
+                sub: ["Brócolis", "Abobrinha refogada", "Couve-flor no vapor"]
+              },
+              {
+                nome: "Batata doce cozida",
+                chave: "batata_doce",
+                peso: 100,
+                sub: ["Mandioca cozida (80g)", "Batata inglesa cozida (120g)"]
+              }
+            ]
+          },
+          {
+            nome: "Lanches",
+            itens: [
+              {
+                nome: "Iogurte desnatado",
+                chave: "iogurte_desnatado",
+                peso: 170,
+                sub: ["Iogurte grego zero", "Shake de whey com água"]
+              },
+              {
+                nome: "Banana",
+                chave: "banana",
+                peso: 80,
+                sub: ["Maçã", "Pêra", "Mamão papaya em cubos"]
+              }
+            ]
+          }
+        ]
+      },
+
+      manutencao: {
+        obsGeral: "Equilíbrio calórico e constância alimentar.",
+        refeicoes: [
+          {
+            nome: "Café da manhã",
+            itens: [
+              {
+                nome: "Ovos mexidos",
+                chave: "ovo",
+                peso: 100,
+                sub: ["Omelete com legumes", "Ovo cozido", "Patê de atum light no pão"]
+              },
+              {
+                nome: "Pão integral",
+                chave: "pao_integral",
+                peso: 30,
+                sub: ["Tapioca média", "Pão francês sem miolo", "Wrap integral pequeno"]
+              },
+              {
+                nome: "Banana",
+                chave: "banana",
+                peso: 80,
+                sub: ["Maçã", "Mamão", "Uva"]
+              }
+            ]
+          },
+          {
+            nome: "Almoço",
+            itens: [
+              {
+                nome: "Frango grelhado",
+                chave: "frango_peito",
+                peso: 130,
+                sub: ["Patinho moído magro", "Salmão/peixe", "Omelete de 3 ovos"]
+              },
+              {
+                nome: "Arroz cozido",
+                chave: "arroz_branco",
+                peso: 120,
+                sub: ["Arroz integral", "Macarrão simples sem molho gorduroso", "Purê de batata"]
+              },
+              {
+                nome: "Feijão cozido",
+                chave: "feijao",
+                peso: 70,
+                sub: ["Grão-de-bico", "Lentilha"]
+              },
+              {
+                nome: "Azeite (salada)",
+                chave: "azeite",
+                peso: 5,
+                sub: ["Abacate picado", "Castanhas picadas (5g)"]
+              }
+            ]
+          },
+          {
+            nome: "Jantar",
+            itens: [
+              {
+                nome: "Frango desfiado / omelete leve",
+                chave: "frango_peito",
+                peso: 100,
+                sub: ["Atum em água", "Queijo branco + clara de ovo", "Sopa proteica com frango"]
+              },
+              {
+                nome: "Batata cozida",
+                chave: "batata",
+                peso: 120,
+                sub: ["Mandioca cozida (90g)", "Batata doce (100g)"]
+              }
+            ]
+          },
+          {
+            nome: "Lanches",
+            itens: [
+              {
+                nome: "Iogurte natural/grego",
+                chave: "iogurte_grego",
+                peso: 140,
+                sub: ["Iogurte desnatado com chia", "Shake de whey com água/leite desnatado"]
+              },
+              {
+                nome: "Castanhas mistas",
+                chave: "castanhas",
+                peso: 10,
+                sub: ["Amendoim torrado sem sal (10g)", "Pasta de amendoim 1 colher (15g)"]
+              }
+            ]
+          }
+        ]
+      },
+
+      ganho: {
+        obsGeral: "Superávit calórico para ganho de massa magra.",
+        refeicoes: [
+          {
+            nome: "Café da manhã",
+            itens: [
+              {
+                nome: "Omelete (3 ovos + queijo)",
+                chave: "ovo",
+                peso: 150,
+                sub: ["Omelete com patinho moído", "Ovos mexidos + queijo branco", "Ovos + pasta de amendoim com pão"]
+              },
+              {
+                nome: "Pão integral",
+                chave: "pao_integral",
+                peso: 60,
+                sub: ["Tapioca grande com queijo", "Wrap integral recheado", "Pão francês tradicional"]
+              },
+              {
+                nome: "Banana",
+                chave: "banana",
+                peso: 100,
+                sub: ["Mamão", "Vitamina de fruta", "Maçã com pasta de amendoim"]
+              },
+              {
+                nome: "Pasta de amendoim",
+                chave: "pasta_amendoim",
+                peso: 15,
+                sub: ["Castanhas (15g)", "Azeite extra no almoço", "1 colher de azeite na salada"]
+              }
+            ]
+          },
+          {
+            nome: "Almoço",
+            itens: [
+              {
+                nome: "Salmão ou frango",
+                chave: "salmao",
+                peso: 150,
+                sub: ["Patinho moído magro", "Peito de frango grelhado", "Atum em azeite escorrido"]
+              },
+              {
+                nome: "Arroz cozido",
+                chave: "arroz_branco",
+                peso: 150,
+                sub: ["Macarrão simples", "Purê de mandioca", "Cuscuz de milho"]
+              },
+              {
+                nome: "Feijão cozido",
+                chave: "feijao",
+                peso: 80,
+                sub: ["Lentilha", "Grão-de-bico refogado"]
+              },
+              {
+                nome: "Azeite (salada)",
+                chave: "azeite",
+                peso: 10,
+                sub: ["Pasta de amendoim (10-15g)", "Castanhas (10g)", "Abacate em cubos"]
+              }
+            ]
+          },
+          {
+            nome: "Jantar",
+            itens: [
+              {
+                nome: "Salmão / frango",
+                chave: "salmao",
+                peso: 150,
+                sub: ["Patinho magro refogado", "Atum", "Frango desfiado com azeite"]
+              },
+              {
+                nome: "Batata / mandioca cozida",
+                chave: "batata",
+                peso: 150,
+                sub: ["Mandioca cozida (150g)", "Purê de batata com azeite", "Macarrão simples"]
+              }
+            ]
+          },
+          {
+            nome: "Lanches",
+            itens: [
+              {
+                nome: "Iogurte grego / shake proteico",
+                chave: "iogurte_grego",
+                peso: 200,
+                sub: ["Whey batido com leite desnatado", "Iogurte + aveia + banana", "Iogurte + pasta de amendoim"]
+              },
+              {
+                nome: "Castanhas",
+                chave: "castanhas",
+                peso: 15,
+                sub: ["Pasta de amendoim (15g)", "Amendoim torrado sem sal (15g)", "Sementes de abóbora"]
+              }
+            ]
+          }
+        ]
+      }
+    };
+
+    const planoEscolhido = PLANOS[goal] || PLANOS.manutencao;
+
+    // 4. Funções de cálculo/render
+    function kcalItem(chave, pesoGramas) {
+      if (!KCAL_POR_G[chave] || pesoGramas === 0) return 0;
+      return KCAL_POR_G[chave] * pesoGramas;
+    }
+
+    function montarTabelaRefeicao(refeicao) {
+      let totalRefeicao = 0;
+
+      const linhas = refeicao.itens.map(item => {
+        const kcal = kcalItem(item.chave, item.peso);
+        totalRefeicao += kcal;
+
+        const opcoes = item.sub && item.sub.length
+          ? `<div class="alimento-opcoes">Opções: ${item.sub.join(" • ")}</div>`
+          : "";
+
+        return `
+          <tr>
+            <td>
+              <div class="alimento-nome">${item.nome}</div>
+              <div class="alimento-peso">${item.peso} g</div>
+              ${opcoes}
+            </td>
+            <td style="text-align:right; white-space: nowrap;">
+              ${Math.round(kcal)} kcal
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      return `
+        <div class="refeicao-card">
+          <div class="refeicao-top">
+            <div class="refeicao-nome">${refeicao.nome}</div>
+            <div class="refeicao-kcal">${Math.round(totalRefeicao)} kcal (~)</div>
+          </div>
+
+          <table class="itens-refeicao">
+            <thead>
+              <tr>
+                <th>Alimento / Porção</th>
+                <th style="text-align:right;">kcal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${linhas}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // 5. Preencher a tela
+    let totalDia = 0;
+    let htmlRefeicoes = "";
+
+    planoEscolhido.refeicoes.forEach(refeicao => {
+      let subtotal = 0;
+      refeicao.itens.forEach(item => {
+        subtotal += kcalItem(item.chave, item.peso);
+      });
+      totalDia += subtotal;
+
+      htmlRefeicoes += montarTabelaRefeicao(refeicao);
+    });
+
+    // Mensagem personalizada comparando totalDia x targetKcalNum
+    let ajusteMsg = "";
+    const diff = totalDia - targetKcalNum;
+
+    if (isFinite(diff)) {
+      if (Math.abs(diff) <= 100) {
+        ajusteMsg = "Este plano já está alinhado com sua meta calórica 👍";
+      } else if (diff > 100) {
+        ajusteMsg = "Este plano está um pouco ACIMA da sua meta. Reduza porções de carboidrato e gordura.";
+      } else {
+        ajusteMsg = "Este plano está um pouco ABAIXO da sua meta. Aumente levemente fontes de proteína e carboidrato.";
+      }
+    }
+
+    htmlRefeicoes += `
+      <div class="obs-refeicao">
+        ${planoEscolhido.obsGeral}<br>
+        Total aproximado do plano do dia: ${Math.round(totalDia)} kcal.<br>
+        Meta alvo configurada: ${targetKcalNum} kcal/dia.<br>
+        ${ajusteMsg}
+      </div>
+    `;
+
+    document.getElementById("refeicoesContainer").innerHTML = htmlRefeicoes;
+
+    // Cabeçalho do cartão meta
+    document.getElementById("metaObjetivo").textContent =
+      goal === "perda"
+        ? "Perda de peso (déficit calórico)"
+        : goal === "ganho"
+        ? "Ganho de peso / Massa muscular (superávit)"
+        : "Manutenção / Reeducação alimentar";
+
+    document.getElementById("metaKcal").textContent = `${targetKcalNum} kcal/dia`;
+    document.getElementById("metaObs").textContent = planoEscolhido.obsGeral;
+
+    // voltar para ajustar objetivo de novo
+    document.getElementById("backLink").href =
+      `dieta.html?goal=${goal}&targetKcal=${targetKcalNum}`;
+  </script>
+</body>
+</html>

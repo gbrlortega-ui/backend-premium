@@ -1,3 +1,45 @@
+# -----------------------
+# Dependências
+# -----------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# -----------------------
+# Credenciais / segredos
+# -----------------------
 .env
+*.env
+.env.local
+.env.development.local
+.env.production.local
+
+# Chave de serviço Firebase (NUNCA commitar isso)
 serviceAccountKey.json
-node_modules
+
+# Se você tiver dumps de credenciais ou exports
+*.key
+*.pem
+*.p8
+*.p12
+
+# -----------------------
+# Builds / caches
+# -----------------------
+dist/
+build/
+.vercel/
+.tmp/
+.cache/
+coverage/
+
+# -----------------------
+# SO / editor
+# -----------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
