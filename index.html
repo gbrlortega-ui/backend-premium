@@ -1,295 +1,810 @@
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import {
-    getAuth,
-    onAuthStateChanged,
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    signOut
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emagreça com Saúde • IMC & Calorias</title>
 
-  import {
-    getFirestore,
-    doc,
-    getDoc
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  <style>
+    :root {
+      --bg1: #0f172a;
+      --bg2: #1e293b;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --card-bg: rgba(30,41,59,0.8);
+      --radius-lg: 16px;
+      --border-color: rgba(148,163,184,0.2);
 
-  // Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyBS5eGv77GcOHL7Z02sGETCaj4YNz6H3uE",
-    authDomain: "emagreca-com-saude-4528d.firebaseapp.com",
-    projectId: "emagreca-com-saude-4528d",
-    storageBucket: "emagreca-com-saude-4528d.firebasestorage.app",
-    messagingSenderId: "373054047338",
-    appId: "1:373054047338:web:f7aa9db304a04a6877f613",
-    measurementId: "G-S5HPSPH3ZX"
-  };
+      --ok-bg: rgba(16,185,129,0.12);
+      --ok-border: rgba(16,185,129,0.4);
+      --ok-text: #6ee7b7;
 
-  // Inicializa Firebase
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db   = getFirestore(app);
-
-  // ====== IMPORTANTE: mesma função do backend ======
-  // transforma email em ID seguro pro Firestore
-  function emailToUserId(email) {
-    return email.replace(/[^a-zA-Z0-9._-]/g, "_").toLowerCase();
-  }
-  // =================================================
-
-  // DOM refs
-  const telaLoginEl        = document.getElementById("telaLogin");
-  const telaAppEl          = document.getElementById("telaApp");
-
-  const loginStatusEl      = document.getElementById("loginStatus");
-  const loginStatusAppEl   = document.getElementById("loginStatusApp");
-
-  const emailLoginEl       = document.getElementById("emailLogin");
-  const senhaLoginEl       = document.getElementById("senhaLogin");
-
-  const btnCadastrarEl     = document.getElementById("btnCadastrar");
-  const btnLoginEl         = document.getElementById("btnLogin");
-  const btnLogoutEl        = document.getElementById("btnLogout");
-
-  const sexoEl             = document.getElementById("sexo");
-  const idadeEl            = document.getElementById("idade");
-  const pesoEl             = document.getElementById("peso");
-  const alturaEl           = document.getElementById("altura");
-  const atividadeEl        = document.getElementById("atividade");
-  const calcBtn            = document.getElementById("calcBtn");
-
-  const resultadoArea      = document.getElementById("resultadoArea");
-  const imcValorEl         = document.getElementById("imcValor");
-  const imcClassificacaoEl = document.getElementById("imcClassificacao");
-  const kcalManutencaoEl   = document.getElementById("kcalManutencao");
-  const kcalCorteEl        = document.getElementById("kcalCorte");
-  const kcalSuperavitEl    = document.getElementById("kcalSuperavit");
-  const resumoMensagemEl   = document.getElementById("resumoMensagem");
-
-  const dietaBtnEl         = document.getElementById("dietaBtn");
-
-  const paywallModalEl     = document.getElementById("paywallModal");
-  const btnFecharModalEl   = document.getElementById("btnFecharModal");
-
-  // Estado
-  let USER_LOGADO = false;
-  let PREMIUM_LIBERADO = false;
-
-  // Utils de UI
-  function abrirPaywall() {
-    paywallModalEl.style.display = "flex";
-  }
-
-  function fecharPaywall() {
-    paywallModalEl.style.display = "none";
-  }
-
-  btnFecharModalEl.addEventListener("click", fecharPaywall);
-
-  function trocarTela(logado) {
-    telaLoginEl.style.display = logado ? "none" : "block";
-    telaAppEl.style.display   = logado ? "block" : "none";
-  }
-
-  function classificarIMC(imc) {
-    if (imc < 18.5) return "Abaixo";
-    else if (imc < 24.9) return "Normal";
-    else if (imc < 29.9) return "Sobrepeso";
-    else if (imc < 34.9) return "Obesidade I";
-    else if (imc < 39.9) return "Obesidade II";
-    else return "Obesidade III";
-  }
-
-  function calcularTMB(sexo, peso, alturaCm, idade) {
-    // Fórmula de Mifflin-St Jeor
-    if (sexo === "masc") {
-      return 10 * peso + 6.25 * alturaCm - 5 * idade + 5;
-    } else {
-      return 10 * peso + 6.25 * alturaCm - 5 * idade - 161;
-    }
-  }
-
-  function atualizarBotaoDieta() {
-    dietaBtnEl.disabled = false;
-
-    if (!USER_LOGADO) {
-      dietaBtnEl.textContent = "🔒 Faça login";
-      return;
+      --off-bg: rgba(239,68,68,0.12);
+      --off-border: rgba(239,68,68,0.4);
+      --off-text: #f87171;
     }
 
-    if (PREMIUM_LIBERADO) {
-      dietaBtnEl.textContent = "🔥 Gere agora sua dieta";
-    } else {
-      dietaBtnEl.textContent = "💳 Desbloquear dieta (premium)";
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", Roboto, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
-  }
 
-  // Observa login/logout + checa premium usando EMAIL (mesma lógica do backend)
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      USER_LOGADO = true;
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 20%, #1e3a8a 0%, #0f172a 60%);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 2rem 1rem 6rem;
+    }
 
-      // Atualiza status visual
-      loginStatusEl.textContent = "Logado: " + user.email;
-      loginStatusEl.classList.remove("status-off");
-      loginStatusEl.classList.add("status-ok");
+    /* ====== CARD PRINCIPAL / APP WRAPPER ====== */
+    .app {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      width: 100%;
+      max-width: 380px;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+      border: 1px solid rgba(148,163,184,0.2);
+      padding: 24px;
+      position: relative;
+    }
 
-      loginStatusAppEl.textContent = "Logado: " + user.email;
-      loginStatusAppEl.classList.remove("status-off");
-      loginStatusAppEl.classList.add("status-ok");
+    /* ====== CABEÇALHO ====== */
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 0 0 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      line-height: 1.3;
+      color: var(--text-main);
+    }
 
-      trocarTela(true);
+    h1 span {
+      font-size: .7rem;
+      font-weight: 500;
+      color: var(--accent);
+    }
 
-      // 🔥 AQUI É A MÁGICA: buscar o doc "usuarios/<email-formatado>"
-      try {
-        const userIdFromEmail = emailToUserId(user.email);
-        const snap = await getDoc(doc(db, "usuarios", userIdFromEmail));
+    .subhead-msg {
+      text-align: center;
+      margin-bottom: 1rem;
+      font-size: .8rem;
+      line-height: 1.4;
+      color: var(--text-main);
+    }
 
-        PREMIUM_LIBERADO = snap.exists() && snap.data().premium === true;
+    /* ====== STATUS LOGIN ====== */
+    .status-box {
+      font-size: .7rem;
+      font-weight: 500;
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px solid;
+      margin-bottom: 1rem;
+      min-width: 0;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+    }
 
-        if (PREMIUM_LIBERADO) {
-          console.log("✅ Usuário premium liberado:", user.email);
-        } else {
-          console.log("⚠️ Usuário comum (sem premium):", user.email);
-        }
-      } catch (e) {
-        console.error("Erro lendo Firestore:", e);
-        PREMIUM_LIBERADO = false;
+    .status-ok {
+      background: var(--ok-bg);
+      border-color: var(--ok-border);
+      color: var(--ok-text);
+      text-shadow: 0 0 8px rgba(16,185,129,0.5);
+    }
+
+    .status-off {
+      background: var(--off-bg);
+      border-color: var(--off-border);
+      color: var(--off-text);
+      text-shadow: 0 0 8px rgba(239,68,68,0.4);
+    }
+
+    /* ====== LABELS / INPUTS ====== */
+    .mini-label {
+      font-size: .7rem;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    input,
+    select {
+      width: 100%;
+      background: var(--bg2);
+      color: var(--text-main);
+      border: 1px solid rgba(148,163,184,0.3);
+      border-radius: 10px;
+      font-size: .9rem;
+      padding: 10px 12px;
+      line-height: 1.4;
+      outline: none;
+      box-shadow: 0 0 20px rgba(0,0,0,0.6);
+      transition: all 0.16s ease;
+    }
+
+    input::placeholder {
+      color: rgba(226,232,240,0.4);
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.2),
+                  0 0 60px rgba(0,0,0,0.8);
+    }
+
+    /* ====== BOTÕES ====== */
+    .btn-main {
+      width: 100%;
+      border: 0;
+      cursor: pointer;
+      border-radius: 10px;
+      font-size: .9rem;
+      font-weight: 600;
+      padding: 10px 12px;
+      line-height: 1.4;
+      background: var(--accent);
+      color: #0f172a;
+      margin-top: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+      transition: all .16s ease;
+    }
+    .btn-main:hover {
+      background: var(--accent-hover);
+    }
+    .btn-main:active {
+      transform: scale(0.98);
+    }
+
+    .btn-alt {
+      width: 100%;
+      cursor: pointer;
+      border-radius: 10px;
+      font-size: .9rem;
+      font-weight: 600;
+      padding: 10px 12px;
+      line-height: 1.4;
+      background: transparent;
+      border: 1px solid rgba(148,163,184,0.4);
+      color: var(--text-main);
+      margin-top: 8px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+      transition: all .16s ease;
+    }
+    .btn-alt:hover {
+      background: rgba(148,163,184,0.12);
+    }
+    .btn-alt:active {
+      transform: scale(0.98);
+    }
+
+    .calc-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #0f172a;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+      transition: all .16s ease;
+    }
+    .calc-btn:hover {
+      background: var(--accent-hover);
+    }
+    .calc-btn:active {
+      transform: scale(0.98);
+    }
+
+    .dieta-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      padding: 12px;
+      font-weight: 600;
+      border-radius: 10px;
+      margin-top: 12px;
+      background: linear-gradient(135deg, #34d399, #10b981);
+      color: #0f172a;
+      border: 0;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+      font-size: .9rem;
+      line-height: 1.4;
+      cursor: pointer;
+    }
+    .dieta-btn[disabled] {
+      opacity: .4;
+      cursor: not-allowed;
+      filter: grayscale(1);
+    }
+
+    /* ===== RESULTADOS ===== */
+    .results-card {
+      background: var(--bg2);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 16px 20px;
+      margin-top: 20px;
+      display: none;
+      font-size: .9rem;
+      line-height: 1.45;
+      color: var(--text-main);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+    }
+
+    .section-title {
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: .9rem;
+    }
+
+    .result-row .label {
+      color: var(--text-dim);
+    }
+
+    .result-row .value {
+      color: var(--text-main);
+      font-weight: 500;
+      text-shadow: 0 0 8px rgba(56,189,248,0.4);
+    }
+
+    .highlight {
+      text-align: center;
+      color: var(--accent);
+      font-weight: 600;
+      margin-top: 12px;
+      text-shadow: 0 0 8px rgba(56,189,248,0.4);
+    }
+
+    .ebook-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      padding: 12px;
+      font-weight: 600;
+      border-radius: 10px;
+      margin-top: 12px;
+      background: linear-gradient(135deg, #f97316, #f59e0b);
+      color: #fff;
+      text-decoration: none;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+      font-size: .9rem;
+      line-height: 1.4;
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: .7rem;
+      color: var(--text-dim);
+      margin-top: 16px;
+      line-height: 1.4;
+    }
+
+    /* ====== PAYWALL OVERLAY ====== */
+    .paywall-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 1.5rem;
+      backdrop-filter: blur(4px);
+    }
+
+    .paywall-box {
+      background: #1e293b;
+      border: 1px solid rgba(148,163,184,0.4);
+      border-radius: 16px;
+      max-width: 360px;
+      width: 100%;
+      padding: 20px;
+      color: #f8fafc;
+      box-shadow:
+        0 30px 140px rgba(0,0,0,0.95),
+        0 0 100px rgba(56,189,248,0.4);
+      text-align: center;
+    }
+
+    .paywall-box h3 {
+      margin: 0 0 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-shadow: 0 0 12px rgba(56,189,248,0.4);
+    }
+
+    .paywall-box p {
+      font-size: .85rem;
+      color: #94a3b8;
+      line-height: 1.4;
+      margin: 12px 0 16px;
+    }
+
+    .mp-btn {
+      display: block;
+      text-align: center;
+      background: linear-gradient(135deg,#34d399,#10b981);
+      color: #0f172a;
+      font-weight: 600;
+      padding: 12px;
+      border-radius: 10px;
+      text-decoration: none;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+      font-size: .9rem;
+      line-height: 1.4;
+    }
+
+    .paywall-close {
+      width: 100%;
+      background: transparent;
+      border: 0;
+      color: #94a3b8;
+      font-size: .8rem;
+      margin-top: 12px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    /* Aux layout */
+    .flex-row-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: .75rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- MODAL PAGAMENTO -->
+  <div id="paywallModal" class="paywall-overlay">
+    <div class="paywall-box">
+      <h3>Dieta Premium 🔒</h3>
+      <p>
+        Pagamento único. Após aprovação, seu acesso premium será liberado automaticamente.
+      </p>
+
+      <!-- Link direto Mercado Pago -->
+      <a id="checkoutMP" class="mp-btn" href="https://mpago.la/2jQUXM9" target="_blank">
+        💳 Pagar agora com Mercado Pago
+      </a>
+
+      <p style="font-size:.75rem;color:#94a3b8;text-align:center;margin-top:8px;">
+        Depois de pagar, basta fazer login novamente para liberar o acesso premium.
+      </p>
+
+      <button id="btnFecharModal" class="paywall-close">Fechar</button>
+    </div>
+  </div>
+
+  <!-- TELA LOGIN -->
+  <section id="telaLogin" class="app">
+    <h1>
+      <span>EMAGREÇA COM SAÚDE</span>
+      <span>v1.7</span>
+    </h1>
+
+    <div class="subhead-msg">
+      <strong>Bem-vindo!</strong><br/>
+      Crie sua conta grátis e tenha cálculo de IMC,<br/>
+      gasto calórico e gere sua dieta personalizada.
+    </div>
+
+    <div id="loginStatus" class="status-box status-off">Desconectado</div>
+
+    <div>
+      <div class="mini-label">E-mail</div>
+      <input
+        id="emailLogin"
+        type="email"
+        placeholder="seu@email.com"
+      />
+
+      <div class="mini-label" style="margin-top:8px;">Senha</div>
+      <input
+        id="senhaLogin"
+        type="password"
+        placeholder="mín. 6 dígitos"
+      />
+
+      <button id="btnCadastrar" class="btn-main">Criar conta</button>
+      <button id="btnLogin" class="btn-alt">Entrar</button>
+    </div>
+
+    <div class="footer-note" style="margin-top:1rem;">
+      Ao entrar, você desbloqueia a calculadora<br/>
+      e pode gerar sua dieta personalizada.
+    </div>
+  </section>
+
+  <!-- TELA APP -->
+  <section id="telaApp" class="app" style="display:none;">
+    <h1>
+      <span>SEU METABOLISMO HOJE</span>
+      <span>v1.7</span>
+    </h1>
+
+    <div class="flex-row-between" style="margin-bottom:1rem;">
+      <div id="loginStatusApp" class="status-box status-off" style="margin-bottom:0;">Desconectado</div>
+      <button id="btnLogout" class="btn-alt" style="width:auto;">Sair</button>
+    </div>
+
+    <div>
+      <div class="mini-label">Sexo</div>
+      <select id="sexo">
+        <option value="">Selecione</option>
+        <option value="masc">Masculino</option>
+        <option value="fem">Feminino</option>
+      </select>
+
+      <div class="mini-label" style="margin-top:8px;">Idade (anos)</div>
+      <input type="number" id="idade" placeholder="ex: 34" />
+
+      <div class="mini-label" style="margin-top:8px;">Peso (kg)</div>
+      <input type="number" id="peso" step="0.1" placeholder="ex: 82.4" />
+
+      <div class="mini-label" style="margin-top:8px;">Altura (cm)</div>
+      <input type="number" id="altura" step="0.1" placeholder="ex: 175" />
+
+      <div class="mini-label" style="margin-top:8px;">Nível de atividade física</div>
+      <select id="atividade">
+        <option value="">Selecione</option>
+        <option value="1.2">Sedentário</option>
+        <option value="1.375">Leve (1-3x/semana)</option>
+        <option value="1.55">Moderado (3-5x/semana)</option>
+        <option value="1.725">Intenso (6-7x/semana)</option>
+      </select>
+
+      <button id="calcBtn" class="calc-btn">Calcular IMC e Calorias</button>
+    </div>
+
+    <div id="resultadoArea" class="results-card">
+      <div class="section-title">IMC e Calorias</div>
+
+      <div class="result-row">
+        <div class="label">IMC</div>
+        <div class="value" id="imcValor">--</div>
+      </div>
+
+      <div class="result-row">
+        <div class="label">Classificação</div>
+        <div class="value" id="imcClassificacao">--</div>
+      </div>
+
+      <div class="result-row">
+        <div class="label">Manutenção</div>
+        <div class="value" id="kcalManutencao">-- kcal/dia</div>
+      </div>
+
+      <div class="result-row">
+        <div class="label">Perda (~0,5 kg/sem)</div>
+        <div class="value" id="kcalCorte">-- kcal/dia</div>
+      </div>
+
+      <div class="result-row">
+        <div class="label">Ganho</div>
+        <div class="value" id="kcalSuperavit">-- kcal/dia</div>
+      </div>
+
+      <div class="highlight" id="resumoMensagem"> </div>
+
+      <a class="ebook-btn" href="https://go.hotmart.com/X102584266R" target="_blank">
+        💪 Adquira seu E-book
+      </a>
+
+      <button id="dietaBtn" class="dieta-btn" disabled>
+        🔒 Faça login para gerar sua dieta
+      </button>
+
+      <div class="footer-note">
+        Acesso premium: pagamento único via Mercado Pago.
+      </div>
+    </div>
+  </section>
+
+  <!-- SCRIPT PRINCIPAL -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBS5eGv77GcOHL7Z02sGETCaj4YNz6H3uE",
+      authDomain: "emagreca-com-saude-4528d.firebaseapp.com",
+      projectId: "emagreca-com-saude-4528d",
+      storageBucket: "emagreca-com-saude-4528d.firebasestorage.app",
+      messagingSenderId: "373054047338",
+      appId: "1:373054047338:web:f7aa9db304a04a6877f613",
+      measurementId: "G-S5HPSPH3ZX"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+
+    // ELEMENTOS
+    const telaLoginEl        = document.getElementById("telaLogin");
+    const telaAppEl          = document.getElementById("telaApp");
+
+    const loginStatusEl      = document.getElementById("loginStatus");
+    const loginStatusAppEl   = document.getElementById("loginStatusApp");
+
+    const emailLoginEl       = document.getElementById("emailLogin");
+    const senhaLoginEl       = document.getElementById("senhaLogin");
+
+    const btnCadastrarEl     = document.getElementById("btnCadastrar");
+    const btnLoginEl         = document.getElementById("btnLogin");
+    const btnLogoutEl        = document.getElementById("btnLogout");
+
+    const sexoEl             = document.getElementById("sexo");
+    const idadeEl            = document.getElementById("idade");
+    const pesoEl             = document.getElementById("peso");
+    const alturaEl           = document.getElementById("altura");
+    const atividadeEl        = document.getElementById("atividade");
+    const calcBtn            = document.getElementById("calcBtn");
+
+    const resultadoArea      = document.getElementById("resultadoArea");
+    const imcValorEl         = document.getElementById("imcValor");
+    const imcClassificacaoEl = document.getElementById("imcClassificacao");
+    const kcalManutencaoEl   = document.getElementById("kcalManutencao");
+    const kcalCorteEl        = document.getElementById("kcalCorte");
+    const kcalSuperavitEl    = document.getElementById("kcalSuperavit");
+    const resumoMensagemEl   = document.getElementById("resumoMensagem");
+
+    const dietaBtnEl         = document.getElementById("dietaBtn");
+
+    const paywallModalEl     = document.getElementById("paywallModal");
+    const btnFecharModalEl   = document.getElementById("btnFecharModal");
+
+    // ESTADO
+    let USER_LOGADO = false;
+    let PREMIUM_LIBERADO = false;
+
+    // UI helpers
+    function abrirPaywall() { paywallModalEl.style.display = "flex"; }
+    function fecharPaywall() { paywallModalEl.style.display = "none"; }
+    btnFecharModalEl.addEventListener("click", fecharPaywall);
+
+    function trocarTela(logado) {
+      telaLoginEl.style.display = logado ? "none" : "block";
+      telaAppEl.style.display   = logado ? "block" : "none";
+    }
+
+    function classificarIMC(imc) {
+      if (imc < 18.5) return "Abaixo";
+      else if (imc < 24.9) return "Normal";
+      else if (imc < 29.9) return "Sobrepeso";
+      else if (imc < 34.9) return "Obesidade I";
+      else if (imc < 39.9) return "Obesidade II";
+      else return "Obesidade III";
+    }
+
+    function calcularTMB(sexo, peso, alturaCm, idade) {
+      return sexo === "masc"
+        ? 10 * peso + 6.25 * alturaCm - 5 * idade + 5
+        : 10 * peso + 6.25 * alturaCm - 5 * idade - 161;
+    }
+
+    function atualizarBotaoDieta() {
+      dietaBtnEl.disabled = false;
+
+      if (!USER_LOGADO) {
+        dietaBtnEl.textContent = "🔒 Faça login";
+        dietaBtnEl.setAttribute("disabled", "disabled");
+        return;
       }
 
-      atualizarBotaoDieta();
-
-    } else {
-      // Saiu da conta
-      USER_LOGADO = false;
-      PREMIUM_LIBERADO = false;
-
-      loginStatusEl.textContent = "Desconectado";
-      loginStatusEl.classList.remove("status-ok");
-      loginStatusEl.classList.add("status-off");
-
-      loginStatusAppEl.textContent = "Desconectado";
-      loginStatusAppEl.classList.remove("status-ok");
-      loginStatusAppEl.classList.add("status-off");
-
-      trocarTela(false);
-      atualizarBotaoDieta();
-    }
-  });
-
-  // Criar conta
-  btnCadastrarEl.addEventListener("click", async () => {
-    try {
-      await createUserWithEmailAndPassword(auth, emailLoginEl.value, senhaLoginEl.value);
-      alert("Conta criada com sucesso ✅");
-    } catch (err) {
-      alert("Erro ao cadastrar: " + err.message);
-    }
-  });
-
-  // Login
-  btnLoginEl.addEventListener("click", async () => {
-    try {
-      await signInWithEmailAndPassword(auth, emailLoginEl.value, senhaLoginEl.value);
-      alert("Login feito ✅");
-    } catch (err) {
-      alert("Erro ao entrar: " + err.message);
-    }
-  });
-
-  // Logout
-  btnLogoutEl.addEventListener("click", async () => {
-    await signOut(auth);
-    alert("Saiu da conta");
-  });
-
-  // Calcular IMC e kcal
-  calcBtn.addEventListener("click", () => {
-    const sexo       = sexoEl.value;
-    const idade      = parseInt(idadeEl.value);
-    const peso       = parseFloat(pesoEl.value);
-    const alturaCm   = parseFloat(alturaEl.value);
-    const atividade  = parseFloat(atividadeEl.value);
-
-    if (!sexo || !idade || !peso || !alturaCm || !atividade) {
-      alert("Por favor, preencha todos os campos corretamente!");
-      return;
+      if (PREMIUM_LIBERADO) {
+        dietaBtnEl.textContent = "🔥 Gerar minha dieta";
+        dietaBtnEl.removeAttribute("disabled");
+      } else {
+        dietaBtnEl.textContent = "💳 Desbloquear dieta (premium)";
+        // ele fica clicável pra abrir o paywall
+      }
     }
 
-    const alturaM = alturaCm / 100;
-    const imc = peso / (alturaM * alturaM);
-    const classificacao = classificarIMC(imc);
+    // >>>>>>>>>>> ALTERAÇÃO IMPORTANTE: BUSCA PREMIUM PELO E-MAIL <<<<<<<<<<<
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        USER_LOGADO = true;
 
-    const tmb = calcularTMB(sexo, peso, alturaCm, idade);
-    const gastoManutencao = tmb * atividade;
-    const cortar500 = gastoManutencao - 500;
-    const aumentar500 = gastoManutencao + 500;
+        loginStatusEl.textContent = "Logado: " + user.email;
+        loginStatusEl.classList.remove("status-off");
+        loginStatusEl.classList.add("status-ok");
 
-    imcValorEl.textContent           = imc.toFixed(2);
-    imcClassificacaoEl.textContent   = classificacao;
-    kcalManutencaoEl.textContent     = Math.round(gastoManutencao) + " kcal/dia";
-    kcalCorteEl.textContent          = Math.round(cortar500) + " kcal/dia";
-    kcalSuperavitEl.textContent      = Math.round(aumentar500) + " kcal/dia";
+        loginStatusAppEl.textContent = "Logado: " + user.email;
+        loginStatusAppEl.classList.remove("status-off");
+        loginStatusAppEl.classList.add("status-ok");
 
-    let msg = "";
-    if (classificacao.includes("Obesidade") || classificacao.includes("Sobrepeso")) {
-      msg = "🔥 Déficit de ~500 kcal/dia acelera perda de peso de forma segura.";
-    } else if (classificacao.includes("Abaixo")) {
-      msg = "🍽️ Superávit leve ajuda a recuperar massa e energia.";
-    } else {
-      msg = "✅ Mantenha consistência e ajuste leve de calorias.";
-    }
-    resumoMensagemEl.textContent = msg;
+        trocarTela(true);
 
-    resultadoArea.style.display = "block";
+        try {
+          // agora pegamos direto pelo email EXATO
+          const ref = doc(db, "usuarios", user.email);
+          const snap = await getDoc(ref);
 
-    // salva metas no sessionStorage pra montar dieta depois
-    sessionStorage.setItem("nutriMaintKcal", Math.round(gastoManutencao));
-    sessionStorage.setItem("nutriCutKcal", Math.round(cortar500));
-    sessionStorage.setItem("nutriBulkKcal", Math.round(aumentar500));
+          PREMIUM_LIBERADO =
+            snap.exists() &&
+            (snap.data().premium === true || snap.data().premium === "true");
 
-    // sugerir objetivo automático
-    let objetivoSugerido = "manutencao";
-    if (classificacao.includes("Obesidade") || classificacao.includes("Sobrepeso")) {
-      objetivoSugerido = "perda";
-    } else if (classificacao.includes("Abaixo")) {
-      objetivoSugerido = "ganho";
-    }
-    sessionStorage.setItem("nutriGoal", objetivoSugerido);
-  });
+          console.log("[DEBUG] PREMIUM_LIBERADO =", PREMIUM_LIBERADO);
+        } catch (e) {
+          console.error("Erro Firestore:", e);
+          PREMIUM_LIBERADO = false;
+        }
 
-  // Botão "Gerar dieta"
-  dietaBtnEl.addEventListener("click", () => {
-    if (!USER_LOGADO) {
-      alert("Faça login primeiro para continuar 🙌");
-      return;
-    }
+        atualizarBotaoDieta();
 
-    if (!PREMIUM_LIBERADO) {
-      // não premium -> abre modal pagamento
-      abrirPaywall();
-      return;
-    }
+      } else {
+        USER_LOGADO = false;
+        PREMIUM_LIBERADO = false;
 
-    // premium liberado -> manda pra dieta.html com os parâmetros
-    const sugerido = sessionStorage.getItem("nutriGoal") || "manutencao";
+        loginStatusEl.textContent = "Desconectado";
+        loginStatusEl.classList.remove("status-ok");
+        loginStatusEl.classList.add("status-off");
 
-    const cutKcal   = sessionStorage.getItem("nutriCutKcal");
-    const bulkKcal  = sessionStorage.getItem("nutriBulkKcal");
-    const maintKcal = sessionStorage.getItem("nutriMaintKcal");
+        loginStatusAppEl.textContent = "Desconectado";
+        loginStatusAppEl.classList.remove("status-ok");
+        loginStatusAppEl.classList.add("status-off");
 
-    let kcalParaMostrar = maintKcal;
-    if (sugerido === "perda") kcalParaMostrar = cutKcal;
-    if (sugerido === "ganho") kcalParaMostrar = bulkKcal;
-
-    sessionStorage.setItem("nutriTargetKcal", kcalParaMostrar);
-
-    const params = new URLSearchParams({
-      goal: sugerido,
-      targetKcal: kcalParaMostrar
+        trocarTela(false);
+        atualizarBotaoDieta();
+      }
     });
 
-    window.location.href = "dieta.html?" + params.toString();
-  });
+    // Cadastro
+    btnCadastrarEl.addEventListener("click", async () => {
+      try {
+        await createUserWithEmailAndPassword(auth, emailLoginEl.value, senhaLoginEl.value);
+        alert("Conta criada ✅");
 
-</script>
+        // garante que o doc exista no formato novo (ID = email)
+        await setDoc(doc(db, "usuarios", emailLoginEl.value), {
+          premium: false,
+          criadoEm: Date.now()
+        }, { merge: true });
+
+      } catch (err) {
+        alert("Erro ao cadastrar: " + err.message);
+      }
+    });
+
+    // Login
+    btnLoginEl.addEventListener("click", async () => {
+      try {
+        await signInWithEmailAndPassword(auth, emailLoginEl.value, senhaLoginEl.value);
+        alert("Login feito ✅");
+      } catch (err) {
+        alert("Erro ao entrar: " + err.message);
+      }
+    });
+
+    // Logout
+    btnLogoutEl.addEventListener("click", async () => {
+      await signOut(auth);
+      alert("Saiu da conta");
+    });
+
+    // Cálculo
+    calcBtn.addEventListener("click", () => {
+      const sexo = sexoEl.value;
+      const idade = parseInt(idadeEl.value);
+      const peso = parseFloat(pesoEl.value);
+      const alturaCm = parseFloat(alturaEl.value);
+      const atividade = parseFloat(atividadeEl.value);
+
+      if (!sexo || !idade || !peso || !alturaCm || !atividade) {
+        alert("Preencha todos os campos!");
+        return;
+      }
+
+      const alturaM = alturaCm / 100;
+      const imc = peso / (alturaM * alturaM);
+      const classificacao = classificarIMC(imc);
+
+      const tmb = calcularTMB(sexo, peso, alturaCm, idade);
+      const gasto = tmb * atividade;
+
+      imcValorEl.textContent = imc.toFixed(2);
+      imcClassificacaoEl.textContent = classificacao;
+      kcalManutencaoEl.textContent = Math.round(gasto) + " kcal/dia";
+      kcalCorteEl.textContent = Math.round(gasto - 500) + " kcal/dia";
+      kcalSuperavitEl.textContent = Math.round(gasto + 500) + " kcal/dia";
+
+      let msg = "";
+      if (classificacao.includes("Obesidade") || classificacao.includes("Sobrepeso")) {
+        msg = "🔥 Déficit de ~500 kcal/dia acelera perda de peso de forma segura.";
+      } else if (classificacao.includes("Abaixo")) {
+        msg = "🍽️ Superávit leve ajuda a recuperar massa e energia.";
+      } else {
+        msg = "✅ Mantenha consistência e ajuste leve de calorias.";
+      }
+      resumoMensagemEl.textContent = msg;
+
+      resultadoArea.style.display = "block";
+
+      // salvar metas pra dieta depois
+      sessionStorage.setItem("nutriMaintKcal", Math.round(gasto));
+      sessionStorage.setItem("nutriCutKcal", Math.round(gasto - 500));
+      sessionStorage.setItem("nutriBulkKcal", Math.round(gasto + 500));
+
+      let objetivoSugerido = "manutencao";
+      if (classificacao.includes("Obesidade") || classificacao.includes("Sobrepeso")) {
+        objetivoSugerido = "perda";
+      } else if (classificacao.includes("Abaixo")) {
+        objetivoSugerido = "ganho";
+      }
+      sessionStorage.setItem("nutriGoal", objetivoSugerido);
+    });
+
+    // Botão dieta
+    dietaBtnEl.addEventListener("click", () => {
+      if (!USER_LOGADO) {
+        alert("Faça login primeiro 🙌");
+        return;
+      }
+
+      if (!PREMIUM_LIBERADO) {
+        abrirPaywall();
+        return;
+      }
+
+      const sugerido = sessionStorage.getItem("nutriGoal") || "manutencao";
+
+      const cutKcal   = sessionStorage.getItem("nutriCutKcal");
+      const bulkKcal  = sessionStorage.getItem("nutriBulkKcal");
+      const maintKcal = sessionStorage.getItem("nutriMaintKcal");
+
+      let kcalParaMostrar = maintKcal;
+      if (sugerido === "perda") kcalParaMostrar = cutKcal;
+      if (sugerido === "ganho") kcalParaMostrar = bulkKcal;
+
+      sessionStorage.setItem("nutriTargetKcal", kcalParaMostrar);
+
+      const params = new URLSearchParams({
+        goal: sugerido,
+        targetKcal: kcalParaMostrar
+      });
+
+      window.location.href = "dieta.html?" + params.toString();
+    });
+  </script>
+</body>
+</html>

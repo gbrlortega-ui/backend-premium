@@ -1,0 +1,317 @@
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getAuth,
+    onAuthStateChanged,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBS5eGv77GcOHL7Z02sGETCaj4YNz6H3uE",
+    authDomain: "emagreca-com-saude-4528d.firebaseapp.com",
+    projectId: "emagreca-com-saude-4528d",
+    storageBucket: "emagreca-com-saude-4528d.firebasestorage.app",
+    messagingSenderId: "373054047338",
+    appId: "1:373054047338:web:f7aa9db304a04a6877f613",
+    measurementId: "G-S5HPSPH3ZX"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  // ELEMENTOS
+  const telaLoginEl        = document.getElementById("telaLogin");
+  const telaAppEl          = document.getElementById("telaApp");
+
+  const loginStatusEl      = document.getElementById("loginStatus");
+  const loginStatusAppEl   = document.getElementById("loginStatusApp");
+
+  const emailLoginEl       = document.getElementById("emailLogin");
+  const senhaLoginEl       = document.getElementById("senhaLogin");
+
+  const btnCadastrarEl     = document.getElementById("btnCadastrar");
+  const btnLoginEl         = document.getElementById("btnLogin");
+  const btnLogoutEl        = document.getElementById("btnLogout");
+
+  const sexoEl             = document.getElementById("sexo");
+  const idadeEl            = document.getElementById("idade");
+  const pesoEl             = document.getElementById("peso");
+  const alturaEl           = document.getElementById("altura");
+  const atividadeEl        = document.getElementById("atividade");
+  const calcBtn            = document.getElementById("calcBtn");
+
+  const resultadoArea      = document.getElementById("resultadoArea");
+  const imcValorEl         = document.getElementById("imcValor");
+  const imcClassificacaoEl = document.getElementById("imcClassificacao");
+  const kcalManutencaoEl   = document.getElementById("kcalManutencao");
+  const kcalCorteEl        = document.getElementById("kcalCorte");
+  const kcalSuperavitEl    = document.getElementById("kcalSuperavit");
+  const resumoMensagemEl   = document.getElementById("resumoMensagem");
+
+  const dietaBtnEl         = document.getElementById("dietaBtn");
+
+  const paywallModalEl     = document.getElementById("paywallModal");
+  const btnFecharModalEl   = document.getElementById("btnFecharModal");
+
+  // ESTADO GLOBAL
+  let USER_LOGADO = false;
+  let PREMIUM_LIBERADO = false;
+
+  // ===== UI HELPERS =====
+  function abrirPaywall() { paywallModalEl.style.display = "flex"; }
+  function fecharPaywall() { paywallModalEl.style.display = "none"; }
+  btnFecharModalEl.addEventListener("click", fecharPaywall);
+
+  function trocarTela(logado) {
+    telaLoginEl.style.display = logado ? "none" : "block";
+    telaAppEl.style.display   = logado ? "block" : "none";
+  }
+
+  function classificarIMC(imc) {
+    if (imc < 18.5) return "Abaixo";
+    else if (imc < 24.9) return "Normal";
+    else if (imc < 29.9) return "Sobrepeso";
+    else if (imc < 34.9) return "Obesidade I";
+    else if (imc < 39.9) return "Obesidade II";
+    else return "Obesidade III";
+  }
+
+  function calcularTMB(sexo, peso, alturaCm, idade) {
+    return sexo === "masc"
+      ? 10 * peso + 6.25 * alturaCm - 5 * idade + 5
+      : 10 * peso + 6.25 * alturaCm - 5 * idade - 161;
+  }
+
+  function atualizarBotaoDieta() {
+    dietaBtnEl.disabled = false;
+
+    if (!USER_LOGADO) {
+      dietaBtnEl.textContent = "🔒 Faça login";
+      dietaBtnEl.setAttribute("disabled", "disabled");
+      return;
+    }
+
+    if (PREMIUM_LIBERADO) {
+      dietaBtnEl.textContent = "🔥 Gerar minha dieta";
+      dietaBtnEl.removeAttribute("disabled");
+    } else {
+      dietaBtnEl.textContent = "💳 Desbloquear dieta (premium)";
+      // Ele fica clicável -> vai abrir paywall
+    }
+  }
+
+  // Essa função agora faz debug completo da leitura do Firestore
+  async function checarPremiumPorEmailExato(user) {
+    const emailDocId = user.email;
+    console.log("[DEBUG] Tentando ler Firestore em usuarios/", emailDocId);
+
+    const ref = doc(db, "usuarios", emailDocId);
+
+    try {
+      const snap = await getDoc(ref);
+      console.log("[DEBUG] snap.exists() =", snap.exists());
+
+      if (!snap.exists()) {
+        console.warn("[DEBUG] Documento NÃO existe no Firestore para esse e-mail EXACTO.");
+        return false;
+      }
+
+      const data = snap.data();
+      console.log("[DEBUG] Conteúdo do doc:", data);
+
+      // aceito boolean true ou string "true"
+      if (data.premium === true || data.premium === "true") {
+        console.log("[DEBUG] premium reconhecido como TRUE ✅");
+        return true;
+      } else {
+        console.warn("[DEBUG] premium NÃO é true. Valor atual:", data.premium);
+        return false;
+      }
+
+    } catch (err) {
+      console.error("[DEBUG] Erro ao ler Firestore:", err);
+
+      // Se cair aqui com permission-denied, é regra de segurança.
+      alert("Erro lendo seu acesso premium. Possível bloqueio de permissão no Firestore.");
+      return false;
+    }
+  }
+
+  // ===== OBSERVA LOGIN / LOGOUT =====
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      USER_LOGADO = true;
+
+      loginStatusEl.textContent = "Logado: " + user.email;
+      loginStatusEl.classList.remove("status-off");
+      loginStatusEl.classList.add("status-ok");
+
+      loginStatusAppEl.textContent = "Logado: " + user.email;
+      loginStatusAppEl.classList.remove("status-off");
+      loginStatusAppEl.classList.add("status-ok");
+
+      trocarTela(true);
+
+      // tenta checar premium agora
+      PREMIUM_LIBERADO = await checarPremiumPorEmailExato(user);
+
+      // guarda no escopo global pra você poder ver no console manualmente
+      window.DEBUG_PREMIUM = PREMIUM_LIBERADO;
+      console.log("[DEBUG] PREMIUM_LIBERADO (final) =", PREMIUM_LIBERADO);
+
+      // Mostra na interface do app também (ajuda você ver sem console)
+      loginStatusAppEl.textContent += PREMIUM_LIBERADO
+        ? " • Premium ✅"
+        : " • Free ❌";
+
+      atualizarBotaoDieta();
+
+    } else {
+      USER_LOGADO = false;
+      PREMIUM_LIBERADO = false;
+      window.DEBUG_PREMIUM = PREMIUM_LIBERADO;
+
+      loginStatusEl.textContent = "Desconectado";
+      loginStatusEl.classList.remove("status-ok");
+      loginStatusEl.classList.add("status-off");
+
+      loginStatusAppEl.textContent = "Desconectado";
+      loginStatusAppEl.classList.remove("status-ok");
+      loginStatusAppEl.classList.add("status-off");
+
+      trocarTela(false);
+      atualizarBotaoDieta();
+    }
+  });
+
+  // ===== CADASTRO =====
+  btnCadastrarEl.addEventListener("click", async () => {
+    try {
+      await createUserWithEmailAndPassword(auth, emailLoginEl.value, senhaLoginEl.value);
+      alert("Conta criada ✅");
+
+      // garante que esse email tenha doc no padrão novo, inicial premium=false
+      await setDoc(doc(db, "usuarios", emailLoginEl.value), {
+        premium: false,
+        criadoEm: Date.now()
+      }, { merge: true });
+
+    } catch (err) {
+      alert("Erro ao cadastrar: " + err.message);
+    }
+  });
+
+  // ===== LOGIN =====
+  btnLoginEl.addEventListener("click", async () => {
+    try {
+      await signInWithEmailAndPassword(auth, emailLoginEl.value, senhaLoginEl.value);
+      alert("Login feito ✅");
+    } catch (err) {
+      alert("Erro ao entrar: " + err.message);
+    }
+  });
+
+  // ===== LOGOUT =====
+  btnLogoutEl.addEventListener("click", async () => {
+    await signOut(auth);
+    alert("Saiu da conta");
+  });
+
+  // ===== CÁLCULO / RESULTADOS =====
+  calcBtn.addEventListener("click", () => {
+    const sexo = sexoEl.value;
+    const idade = parseInt(idadeEl.value);
+    const peso = parseFloat(pesoEl.value);
+    const alturaCm = parseFloat(alturaEl.value);
+    const atividade = parseFloat(atividadeEl.value);
+
+    if (!sexo || !idade || !peso || !alturaCm || !atividade) {
+      alert("Preencha todos os campos!");
+      return;
+    }
+
+    const alturaM = alturaCm / 100;
+    const imc = peso / (alturaM * alturaM);
+    const classificacao = classificarIMC(imc);
+
+    const tmb = calcularTMB(sexo, peso, alturaCm, idade);
+    const gasto = tmb * atividade;
+
+    imcValorEl.textContent = imc.toFixed(2);
+    imcClassificacaoEl.textContent = classificacao;
+    kcalManutencaoEl.textContent = Math.round(gasto) + " kcal/dia";
+    kcalCorteEl.textContent = Math.round(gasto - 500) + " kcal/dia";
+    kcalSuperavitEl.textContent = Math.round(gasto + 500) + " kcal/dia";
+
+    let msg = "";
+    if (classificacao.includes("Obesidade") || classificacao.includes("Sobrepeso")) {
+      msg = "🔥 Déficit de ~500 kcal/dia acelera perda de peso de forma segura.";
+    } else if (classificacao.includes("Abaixo")) {
+      msg = "🍽️ Superávit leve ajuda a recuperar massa e energia.";
+    } else {
+      msg = "✅ Mantenha consistência e ajuste leve de calorias.";
+    }
+    resumoMensagemEl.textContent = msg;
+
+    resultadoArea.style.display = "block";
+
+    // sessionStorage para usar na dieta
+    sessionStorage.setItem("nutriMaintKcal", Math.round(gasto));
+    sessionStorage.setItem("nutriCutKcal", Math.round(gasto - 500));
+    sessionStorage.setItem("nutriBulkKcal", Math.round(gasto + 500));
+
+    let objetivoSugerido = "manutencao";
+    if (classificacao.includes("Obesidade") || classificacao.includes("Sobrepeso")) {
+      objetivoSugerido = "perda";
+    } else if (classificacao.includes("Abaixo")) {
+      objetivoSugerido = "ganho";
+    }
+    sessionStorage.setItem("nutriGoal", objetivoSugerido);
+  });
+
+  // ===== BOTÃO "GERAR MINHA DIETA" =====
+  dietaBtnEl.addEventListener("click", () => {
+    if (!USER_LOGADO) {
+      alert("Faça login primeiro 🙌");
+      return;
+    }
+
+    if (!PREMIUM_LIBERADO) {
+      // antes de abrir paywall já mostra debug pra você
+      console.log("[DEBUG] Clicou dieta sem premium. window.DEBUG_PREMIUM =", window.DEBUG_PREMIUM);
+      alert("Sua conta não está marcada como premium ainda.\nSe você já pagou, confira o Firestore e as regras de leitura.");
+      abrirPaywall();
+      return;
+    }
+
+    // premium liberado → monta dados e vai pra dieta.html
+    const sugerido = sessionStorage.getItem("nutriGoal") || "manutencao";
+
+    const cutKcal   = sessionStorage.getItem("nutriCutKcal");
+    const bulkKcal  = sessionStorage.getItem("nutriBulkKcal");
+    const maintKcal = sessionStorage.getItem("nutriMaintKcal");
+
+    let kcalParaMostrar = maintKcal;
+    if (sugerido === "perda") kcalParaMostrar = cutKcal;
+    if (sugerido === "ganho") kcalParaMostrar = bulkKcal;
+
+    sessionStorage.setItem("nutriTargetKcal", kcalParaMostrar);
+
+    const params = new URLSearchParams({
+      goal: sugerido,
+      targetKcal: kcalParaMostrar
+    });
+
+    window.location.href = "dieta.html?" + params.toString();
+  });
+</script>
